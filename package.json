@@ -1,0 +1,21 @@
+{
+  "name": "telegram-monitor",
+  "version": "1.0.0",
+  "description": "Telegram 公开频道消息监控服务，部署在 Cloudflare Pages + Functions + KV 上",
+  "scripts": {
+    "build": "echo 'Build completed'",
+    "dev": "echo 'Dev mode'"
+  },
+  "keywords": [
+    "telegram",
+    "monitor",
+    "cloudflare",
+    "pages",
+    "functions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

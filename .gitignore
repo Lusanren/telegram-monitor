@@ -1,0 +1,32 @@
+# 依赖目录
+node_modules/
+
+# 环境变量文件
+.env
+.dev.vars
+
+# 日志文件
+logs/
+*.log
+
+# 编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 构建输出
+dist/
+build/
+
+# 测试文件
+coverage/
+
+# 临时文件
+*.tmp
+*.temp
