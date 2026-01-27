@@ -91,7 +91,7 @@ function validateConfig(env) {
 }
 
 /**
- * 初始化历史记录
+ * 初始化历史记录（参考 Python 版本）
  * @param {Object} env - 环境变量对象
  * @param {Object} config - 配置对象
  */
@@ -101,21 +101,48 @@ async function initializeHistory(env, config) {
     const historyKey = `history_${channelUsername}`;
     
     try {
-      // 检查历史记录是否存在
+      // 检查历史记录是否存在或为空
       const existingHistory = await env.MESSAGE_HISTORY.get(historyKey);
-      if (!existingHistory) {
-        // 首次运行，获取现有消息以避免重复处理
-        console.log(`初始化频道 ${channelUsername} 的历史记录...`);
-        const messages = await getChannelMessages(channelUsername, config);
-        
-        // 存储消息 ID 到历史记录
-        const messageIds = messages.map(msg => msg.id);
-        if (messageIds.length > 0) {
-          // 限制历史记录大小
-          const recentIds = messageIds.slice(-config.MESSAGE_HISTORY_SIZE);
-          await env.MESSAGE_HISTORY.put(historyKey, JSON.stringify(recentIds));
-          console.log(`已初始化频道 ${channelUsername} 的历史记录，保存了 ${recentIds.length} 条消息 ID`);
+      let historyArray = [];
+      
+      if (existingHistory) {
+        try {
+          historyArray = JSON.parse(existingHistory);
+          console.log(`发现现有历史记录，包含 ${historyArray.length} 条消息 ID`);
+        } catch (parseError) {
+          console.error(`解析历史记录失败: ${parseError}`);
+          // 历史记录解析失败，视为不存在
+          historyArray = [];
         }
+      }
+      
+      // 如果历史记录不存在或为空，初始化历史记录
+      if (!existingHistory || historyArray.length === 0) {
+        console.log(`初始化频道 ${channelUsername} 的历史记录...`);
+        
+        // 获取频道消息（参考 Python 版本的 get_channel_messages）
+        const messages = await getChannelMessages(channelUsername, config);
+        console.log(`找到 ${messages.length} 条消息`);
+        
+        if (messages.length > 0) {
+          // 提取消息 ID（参考 Python 版本的处理方式）
+          const messageIds = messages.map(msg => msg.id);
+          console.log(`提取到 ${messageIds.length} 个消息 ID`);
+          
+          // 限制历史记录大小（参考 Python 版本的 50 条限制）
+          const recentIds = messageIds.slice(-config.MESSAGE_HISTORY_SIZE);
+          console.log(`保存最近 ${recentIds.length} 条消息 ID`);
+          
+          // 保存历史记录（参考 Python 版本的 MESSAGE_HISTORY）
+          await env.MESSAGE_HISTORY.put(historyKey, JSON.stringify(recentIds));
+          console.log(`已初始化频道 ${channelUsername} 的历史记录`);
+        } else {
+          // 即使没有消息，也要创建空历史记录
+          await env.MESSAGE_HISTORY.put(historyKey, JSON.stringify([]));
+          console.log(`频道 ${channelUsername} 暂时没有消息，初始化空历史记录`);
+        }
+      } else {
+        console.log(`频道 ${channelUsername} 的历史记录已存在且不为空，跳过初始化`);
       }
     } catch (error) {
       console.error(`初始化频道 ${channelUsername} 历史记录失败: ${error}`);
@@ -224,7 +251,7 @@ async function getChannelMessages(channelUsername, config) {
 }
 
 /**
- * 解析 HTML 提取消息
+ * 解析 HTML 提取消息（参考 Python 版本的 BeautifulSoup 解析）
  * @param {string} html - HTML 字符串
  * @param {string} channelUsername - 频道用户名
  * @returns {Array} - 消息数组
@@ -232,18 +259,22 @@ async function getChannelMessages(channelUsername, config) {
 function parseMessages(html, channelUsername) {
   const messages = [];
   
-  // 使用正则表达式提取消息（避免依赖 cheerio，减少包大小）
+  console.log("开始解析消息...");
+  
+  // 步骤1：提取所有包含 data-post 属性的元素（参考 Python 版本的 find_all）
   const messageRegex = /<div[^>]+class="tgme_widget_message"[^>]+data-post="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g;
   let match;
+  let messageCount = 0;
   
   while ((match = messageRegex.exec(html)) !== null) {
+    messageCount++;
     const messageId = match[1];
     const messageContent = match[2];
     
     try {
       let messageText = "";
       
-      // 提取文本消息
+      // 步骤2：提取文本消息（参考 Python 版本的 find(class_='tgme_widget_message_text')）
       const textRegex = /<div[^>]+class="tgme_widget_message_text"[^>]*>([\s\S]*?)<\/div>/;
       const textMatch = textRegex.exec(messageContent);
       
@@ -257,8 +288,11 @@ function parseMessages(html, channelUsername) {
           .replace(/&gt;/g, ">")
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'");
+        
+        // 清理空白字符
+        messageText = messageText.replace(/\s+/g, " ").trim();
       } else {
-        // 检查媒体消息
+        // 步骤3：检查媒体消息（参考 Python 版本的处理）
         if (messageContent.includes('tgme_widget_message_photo')) {
           messageText = "[图片消息]";
         } else if (messageContent.includes('tgme_widget_message_video')) {
@@ -280,6 +314,9 @@ function parseMessages(html, channelUsername) {
           channel: channelUsername,
           timestamp: Date.now()
         });
+        console.log(`解析到消息 ${messageCount}: ${messageId} - ${messageText.substring(0, 30)}${messageText.length > 30 ? '...' : ''}`);
+      } else {
+        console.log(`跳过空消息 ${messageId}`);
       }
       
     } catch (parseError) {
@@ -288,6 +325,7 @@ function parseMessages(html, channelUsername) {
     }
   }
   
+  console.log(`解析完成，共找到 ${messages.length} 条有效消息（解析了 ${messageCount} 个消息容器）`);
   return messages;
 }
 
