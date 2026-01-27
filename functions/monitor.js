@@ -31,10 +31,10 @@ export async function onRequest(context) {
     await initializeHistory(env, config);
     
     // 3. 监控所有频道
-    const results = await monitorAllChannels(env, config);
+    const { results, detailedLogs } = await monitorAllChannels(env, config);
     
     // 4. 生成执行报告
-    const report = generateReport(results);
+    const report = generateReport(results, detailedLogs);
     
     // 5. 返回成功响应
     return createSuccessResponse(report);
@@ -158,22 +158,27 @@ async function initializeHistory(env, config) {
  */
 async function monitorAllChannels(env, config) {
   const results = [];
+  const detailedLogs = [];
   
   for (const channelInfo of config.SOURCE_CHANNELS) {
     const [channelUsername, channelId] = channelInfo;
+    const channelLogs = [];
+    channelLogs.push(`\n开始监控频道: ${channelUsername} (ID: ${channelId})`);
     console.log(`\n开始监控频道: ${channelUsername} (ID: ${channelId})`);
     
     try {
       // 1. 获取频道消息
       const messages = await getChannelMessages(channelUsername, config);
+      channelLogs.push(`找到 ${messages.length} 条消息`);
       console.log(`找到 ${messages.length} 条消息`);
       
       // 2. 过滤新消息
       const newMessages = await filterNewMessages(env, channelUsername, messages, config);
+      channelLogs.push(`发现 ${newMessages.length} 条新消息`);
       console.log(`发现 ${newMessages.length} 条新消息`);
       
       // 3. 转发新消息
-      const forwardedCount = await forwardMessages(newMessages, config);
+      const forwardedCount = await forwardMessages(newMessages, config, channelLogs);
       
       // 记录成功结果
       results.push({
@@ -183,11 +188,16 @@ async function monitorAllChannels(env, config) {
         totalMessages: messages.length,
         newMessages: newMessages.length,
         forwardedMessages: forwardedCount,
-        error: null
+        error: null,
+        logs: channelLogs
       });
       
+      detailedLogs.push(...channelLogs);
+      
     } catch (error) {
-      console.error(`监控频道 ${channelUsername} 时出错: ${error}`);
+      const errorMsg = `监控频道 ${channelUsername} 时出错: ${error}`;
+      channelLogs.push(errorMsg);
+      console.error(errorMsg);
       
       // 记录失败结果
       results.push({
@@ -197,12 +207,15 @@ async function monitorAllChannels(env, config) {
         totalMessages: 0,
         newMessages: 0,
         forwardedMessages: 0,
-        error: error.message
+        error: error.message,
+        logs: channelLogs
       });
+      
+      detailedLogs.push(errorMsg);
     }
   }
   
-  return results;
+  return { results, detailedLogs };
 }
 
 /**
@@ -399,7 +412,8 @@ async function filterNewMessages(env, channelUsername, messages, config) {
       if (!history.has(msg.id)) {
         newMessages.push(msg);
         history.add(msg.id);
-        console.log(`发现新消息: ${msg.id} - ${msg.text.substring(0, 30)}...`);
+        const newMsgLog = `发现新消息: ${msg.id} - ${msg.text.substring(0, 50)}${msg.text.length > 50 ? '...' : ''}`;
+        console.log(newMsgLog);
       }
     }
     
@@ -429,22 +443,41 @@ async function filterNewMessages(env, channelUsername, messages, config) {
  * 转发消息到目标频道
  * @param {Array} messages - 消息数组
  * @param {Object} config - 配置对象
+ * @param {Array} channelLogs - 频道日志数组
  * @returns {number} - 成功转发的消息数量
  */
-async function forwardMessages(messages, config) {
+async function forwardMessages(messages, config, channelLogs) {
   let successCount = 0;
   
   for (const msg of messages) {
-    console.log(`\n转发消息到目标频道:`);
-    console.log(`来源: ${msg.channel}`);
-    console.log(`内容: ${msg.text.substring(0, 100)}${msg.text.length > 100 ? '...' : ''}`);
+    const forwardInfo = `\n转发消息到目标频道:`;
+    const sourceInfo = `来源: ${msg.channel}`;
+    const contentInfo = `内容: ${msg.text.substring(0, 100)}${msg.text.length > 100 ? '...' : ''}`;
     
-    const success = await sendMessageToTarget(msg.text, config);
+    console.log(forwardInfo);
+    console.log(sourceInfo);
+    console.log(contentInfo);
+    
+    if (channelLogs) {
+      channelLogs.push(forwardInfo);
+      channelLogs.push(sourceInfo);
+      channelLogs.push(contentInfo);
+    }
+    
+    const success = await sendMessageToTarget(msg.text, config, channelLogs);
     if (success) {
       successCount++;
-      console.log(`✓ 转发成功!`);
+      const successMsg = `✓ 转发成功!`;
+      console.log(successMsg);
+      if (channelLogs) {
+        channelLogs.push(successMsg);
+      }
     } else {
-      console.log(`✗ 转发失败!`);
+      const failureMsg = `✗ 转发失败!`;
+      console.log(failureMsg);
+      if (channelLogs) {
+        channelLogs.push(failureMsg);
+      }
     }
     
     // 避免 Telegram API 频率限制
@@ -458,9 +491,10 @@ async function forwardMessages(messages, config) {
  * 发送消息到目标频道
  * @param {string} messageText - 消息文本
  * @param {Object} config - 配置对象
+ * @param {Array} channelLogs - 频道日志数组
  * @returns {boolean} - 是否发送成功
  */
-async function sendMessageToTarget(messageText, config) {
+async function sendMessageToTarget(messageText, config, channelLogs) {
   const url = `https://api.telegram.org/bot${config.BOT_TOKEN}/sendMessage`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
@@ -485,13 +519,21 @@ async function sendMessageToTarget(messageText, config) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Telegram API 错误: ${response.status} - ${errorText}`);
+      const errorMsg = `Telegram API 错误: ${response.status} - ${errorText}`;
+      console.error(errorMsg);
+      if (channelLogs) {
+        channelLogs.push(errorMsg);
+      }
       return false;
     }
     
     const result = await response.json();
     if (!result.ok) {
-      console.error(`Telegram API 响应错误: ${result.description}`);
+      const errorMsg = `Telegram API 响应错误: ${result.description}`;
+      console.error(errorMsg);
+      if (channelLogs) {
+        channelLogs.push(errorMsg);
+      }
       return false;
     }
     
@@ -500,10 +542,16 @@ async function sendMessageToTarget(messageText, config) {
   } catch (error) {
     clearTimeout(timeoutId);
     
+    let errorMsg;
     if (error.name === "AbortError") {
-      console.error(`发送消息超时`);
+      errorMsg = `发送消息超时`;
     } else {
-      console.error(`发送消息失败: ${error.message}`);
+      errorMsg = `发送消息失败: ${error.message}`;
+    }
+    
+    console.error(errorMsg);
+    if (channelLogs) {
+      channelLogs.push(errorMsg);
     }
     
     return false;
@@ -513,9 +561,10 @@ async function sendMessageToTarget(messageText, config) {
 /**
  * 生成执行报告
  * @param {Array} results - 监控结果数组
+ * @param {Array} detailedLogs - 详细日志数组
  * @returns {Object} - 执行报告
  */
-function generateReport(results) {
+function generateReport(results, detailedLogs) {
   const successCount = results.filter(r => r.success).length;
   const totalChannels = results.length;
   const totalNewMessages = results.reduce((sum, r) => sum + r.newMessages, 0);
@@ -537,6 +586,9 @@ function generateReport(results) {
     }
   });
   
+  // 为了在shell脚本中更清晰地查看，添加一个格式化的日志字段
+  const formattedLogs = detailedLogs.join('\n');
+  
   return {
     status: "completed",
     timestamp: new Date().toISOString(),
@@ -548,6 +600,7 @@ function generateReport(results) {
       totalForwardedMessages
     },
     details: results,
+    logs: formattedLogs,
     message: "Telegram 频道监控任务执行完成"
   };
 }
