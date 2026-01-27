@@ -217,6 +217,7 @@ async function getChannelMessages(channelUsername, config) {
   const timeoutId = setTimeout(() => controller.abort(), config.CHECK_TIMEOUT);
   
   try {
+    console.log(`正在访问频道: ${url}`);
     // 发送 HTTP 请求
     const response = await fetch(url, {
       signal: controller.signal,
@@ -237,7 +238,31 @@ async function getChannelMessages(channelUsername, config) {
     
     // 解析 HTML
     const html = await response.text();
-    return parseMessages(html, channelUsername);
+    console.log(`获取到 ${html.length} 字节的 HTML 内容`);
+    
+    // 添加 HTML 内容前 500 字符的日志，以便查看页面结构
+    console.log(`HTML 内容前 500 字符: ${html.substring(0, 500)}...`);
+    
+    // 检查页面是否是登录页面或错误页面
+    if (html.includes('Please log in to view this channel')) {
+      console.error("错误：频道需要登录，不是公开频道");
+      return [];
+    }
+    
+    if (html.includes('Channel not found')) {
+      console.error("错误：频道不存在");
+      return [];
+    }
+    
+    if (html.includes('Page not found')) {
+      console.error("错误：页面不存在");
+      return [];
+    }
+    
+    const messages = parseMessages(html, channelUsername);
+    console.log(`成功解析 ${messages.length} 条消息`);
+    
+    return messages;
     
   } catch (error) {
     clearTimeout(timeoutId);
