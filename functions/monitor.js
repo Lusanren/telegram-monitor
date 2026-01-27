@@ -286,21 +286,25 @@ function parseMessages(html, channelUsername) {
   
   console.log("开始解析消息...");
   
-  // 步骤1：提取所有包含 data-post 属性的元素（参考 Python 版本的 find_all）
-  const messageRegex = /<div[^>]+class="tgme_widget_message"[^>]+data-post="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g;
+  // 修改后的正则表达式，能够匹配包含多个class的情况
+  const messageRegex = /<div[^>]+class="[^"]*tgme_widget_message[^"]*"[^>]+data-post="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g;
   let match;
   let messageCount = 0;
+  
+  console.log(`使用正则表达式: ${messageRegex}`);
   
   while ((match = messageRegex.exec(html)) !== null) {
     messageCount++;
     const messageId = match[1];
     const messageContent = match[2];
     
+    console.log(`找到消息容器 ${messageCount}: ${messageId}`);
+    
     try {
       let messageText = "";
       
-      // 步骤2：提取文本消息（参考 Python 版本的 find(class_='tgme_widget_message_text')）
-      const textRegex = /<div[^>]+class="tgme_widget_message_text"[^>]*>([\s\S]*?)<\/div>/;
+      // 提取文本消息，使用更灵活的正则表达式
+      const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
       const textMatch = textRegex.exec(messageContent);
       
       if (textMatch) {
@@ -312,22 +316,29 @@ function parseMessages(html, channelUsername) {
           .replace(/&lt;/g, "<")
           .replace(/&gt;/g, ">")
           .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, " ");
         
         // 清理空白字符
         messageText = messageText.replace(/\s+/g, " ").trim();
+        console.log(`提取到消息内容: ${messageText}`);
       } else {
-        // 步骤3：检查媒体消息（参考 Python 版本的处理）
+        // 检查媒体消息
         if (messageContent.includes('tgme_widget_message_photo')) {
           messageText = "[图片消息]";
+          console.log(`提取到媒体消息: 图片`);
         } else if (messageContent.includes('tgme_widget_message_video')) {
           messageText = "[视频消息]";
+          console.log(`提取到媒体消息: 视频`);
         } else if (messageContent.includes('tgme_widget_message_audio')) {
           messageText = "[音频消息]";
+          console.log(`提取到媒体消息: 音频`);
         } else if (messageContent.includes('tgme_widget_message_document')) {
           messageText = "[文档消息]";
+          console.log(`提取到媒体消息: 文档`);
         } else {
           messageText = "[媒体消息]";
+          console.log(`提取到媒体消息: 其他`);
         }
       }
       
@@ -339,7 +350,7 @@ function parseMessages(html, channelUsername) {
           channel: channelUsername,
           timestamp: Date.now()
         });
-        console.log(`解析到消息 ${messageCount}: ${messageId} - ${messageText.substring(0, 30)}${messageText.length > 30 ? '...' : ''}`);
+        console.log(`添加消息到结果: ${messageId} - ${messageText.substring(0, 50)}...`);
       } else {
         console.log(`跳过空消息 ${messageId}`);
       }
