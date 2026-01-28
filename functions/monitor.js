@@ -316,9 +316,25 @@ function parseMessages(html, channelUsername) {
     try {
       let messageText = "";
       
-      // 提取文本消息，只关注tgme_widget_message_text容器，支持before_footer类
-        const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
-        const textMatch = textRegex.exec(messageContent);
+      // 提取文本消息，使用更灵活的正则表达式，匹配所有可能的文本容器
+        // 尝试多种可能的消息文本容器结构
+        let textMatch;
+        
+        // 模式1: 标准的tgme_widget_message_text容器
+        const pattern1 = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+        textMatch = pattern1.exec(messageContent);
+        
+        // 模式2: 带有before_footer类的容器
+        if (!textMatch) {
+          const pattern2 = /<div[^>]+class="[^"]*before_footer[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+          textMatch = pattern2.exec(messageContent);
+        }
+        
+        // 模式3: 任何包含文本的div容器
+        if (!textMatch) {
+          const pattern3 = /<div[^>]*>([\s\S]*?)<\/div>/;
+          textMatch = pattern3.exec(messageContent);
+        }
         
         if (textMatch) {
           // 移除 HTML 标签，提取纯文本
@@ -335,6 +351,13 @@ function parseMessages(html, channelUsername) {
           // 清理空白字符
           messageText = messageText.replace(/\s+/g, " ").trim();
           console.log(`提取到消息内容: ${messageText}`);
+        } else {
+          console.log(`未找到消息文本容器，尝试直接提取内容`);
+          // 尝试直接从消息容器中提取纯文本
+          messageText = messageContent.replace(/<[^>]+>/g, "").trim().replace(/\s+/g, " ");
+          if (messageText) {
+            console.log(`直接提取到内容: ${messageText}`);
+          }
         }
       
       // 只添加有内容的消息
