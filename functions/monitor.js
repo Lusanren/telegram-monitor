@@ -312,6 +312,8 @@ function parseMessages(html, channelUsername) {
     const messageContent = match[2];
     
     console.log(`找到消息容器 ${messageCount}: ${messageId}`);
+    // 输出消息容器内容的前500个字符，以便分析结构
+    console.log(`消息容器内容预览: ${messageContent.substring(0, 500)}...`);
     
     try {
       let messageText = "";
@@ -323,20 +325,24 @@ function parseMessages(html, channelUsername) {
         // 模式1: 标准的tgme_widget_message_text容器
         const pattern1 = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
         textMatch = pattern1.exec(messageContent);
+        console.log(`模式1匹配结果: ${textMatch ? '成功' : '失败'}`);
         
         // 模式2: 带有before_footer类的容器
         if (!textMatch) {
           const pattern2 = /<div[^>]+class="[^"]*before_footer[^"]*"[^>]*>([\s\S]*?)<\/div>/;
           textMatch = pattern2.exec(messageContent);
+          console.log(`模式2匹配结果: ${textMatch ? '成功' : '失败'}`);
         }
         
         // 模式3: 任何包含文本的div容器
         if (!textMatch) {
           const pattern3 = /<div[^>]*>([\s\S]*?)<\/div>/;
           textMatch = pattern3.exec(messageContent);
+          console.log(`模式3匹配结果: ${textMatch ? '成功' : '失败'}`);
         }
         
         if (textMatch) {
+          console.log(`匹配到的文本内容: ${textMatch[1].substring(0, 200)}...`);
           // 移除 HTML 标签，提取纯文本
           messageText = textMatch[1].replace(/<[^>]+>/g, "").trim();
           // 处理 HTML 实体
@@ -355,9 +361,7 @@ function parseMessages(html, channelUsername) {
           console.log(`未找到消息文本容器，尝试直接提取内容`);
           // 尝试直接从消息容器中提取纯文本
           messageText = messageContent.replace(/<[^>]+>/g, "").trim().replace(/\s+/g, " ");
-          if (messageText) {
-            console.log(`直接提取到内容: ${messageText}`);
-          }
+          console.log(`直接提取到内容: ${messageText}`);
         }
       
       // 只添加有内容的消息
@@ -370,7 +374,7 @@ function parseMessages(html, channelUsername) {
         });
         console.log(`添加消息到结果: ${messageId} - ${messageText.substring(0, 50)}...`);
       } else {
-        console.log(`跳过空消息 ${messageId}`);
+        console.log(`跳过空消息 ${messageId}，最终文本: "${messageText}"`);
       }
       
     } catch (parseError) {
