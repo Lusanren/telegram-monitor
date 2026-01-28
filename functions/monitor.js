@@ -343,28 +343,38 @@ function parseMessages(html, channelUsername) {
         
         if (textMatch) {
           console.log(`匹配到的文本内容: ${textMatch[1].substring(0, 200)}...`);
-          // 移除 HTML 标签，提取纯文本
-          messageText = textMatch[1].replace(/<[^>]+>/g, "").trim();
-          // 处理 HTML 实体
-          messageText = messageText
+          
+          // 步骤1: 移除 HTML 标签
+          let step1 = textMatch[1].replace(/<[^>]+>/g, "").trim();
+          console.log(`步骤1 - 移除HTML标签后: "${step1}"`);
+          
+          // 步骤2: 处理 HTML 实体
+          let step2 = step1
             .replace(/&amp;/g, "&")
             .replace(/&lt;/g, "<")
             .replace(/&gt;/g, ">")
             .replace(/&quot;/g, '"')
             .replace(/&#39;/g, "'")
             .replace(/&nbsp;/g, " ");
+          console.log(`步骤2 - 处理HTML实体后: "${step2}"`);
           
-          // 清理空白字符
-          messageText = messageText.replace(/\s+/g, " ").trim();
+          // 步骤3: 清理空白字符
+          messageText = step2.replace(/\s+/g, " ").trim();
+          console.log(`步骤3 - 清理空白字符后: "${messageText}"`);
           console.log(`提取到消息内容: ${messageText}`);
         } else {
           console.log(`未找到消息文本容器，尝试直接提取内容`);
           // 尝试直接从消息容器中提取纯文本
-          messageText = messageContent.replace(/<[^>]+>/g, "").trim().replace(/\s+/g, " ");
-          console.log(`直接提取到内容: ${messageText}`);
+          let rawText = messageContent.replace(/<[^>]+>/g, "").trim();
+          console.log(`直接提取原始文本: "${rawText}"`);
+          messageText = rawText.replace(/\s+/g, " ").trim();
+          console.log(`直接提取到内容: "${messageText}"`);
         }
       
       // 只添加有内容的消息
+      console.log(`最终消息文本长度: ${messageText.length}`);
+      console.log(`最终消息文本内容: "${messageText}"`);
+      
       if (messageText && messageText.length > 0) {
         messages.push({
           id: messageId,
@@ -375,6 +385,8 @@ function parseMessages(html, channelUsername) {
         console.log(`添加消息到结果: ${messageId} - ${messageText.substring(0, 50)}...`);
       } else {
         console.log(`跳过空消息 ${messageId}，最终文本: "${messageText}"`);
+        // 即使为空，也添加详细日志
+        console.log(`消息容器内容前300字符: ${messageContent.substring(0, 300)}...`);
       }
       
     } catch (parseError) {
