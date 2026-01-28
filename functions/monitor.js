@@ -317,43 +317,57 @@ function parseMessages(html, channelUsername) {
       let messageText = "";
       
       // 提取文本消息，使用更灵活的正则表达式
-      const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
-      const textMatch = textRegex.exec(messageContent);
-      
-      if (textMatch) {
-        // 移除 HTML 标签，提取纯文本
-        messageText = textMatch[1].replace(/<[^>]+>/g, "").trim();
-        // 处理 HTML 实体
-        messageText = messageText
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&nbsp;/g, " ");
+        const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+        const textMatch = textRegex.exec(messageContent);
         
-        // 清理空白字符
-        messageText = messageText.replace(/\s+/g, " ").trim();
-        console.log(`提取到消息内容: ${messageText}`);
-      } else {
-        // 检查媒体消息
-        if (messageContent.includes('tgme_widget_message_photo')) {
-          messageText = "[图片消息]";
-          console.log(`提取到媒体消息: 图片`);
-        } else if (messageContent.includes('tgme_widget_message_video')) {
-          messageText = "[视频消息]";
-          console.log(`提取到媒体消息: 视频`);
-        } else if (messageContent.includes('tgme_widget_message_audio')) {
-          messageText = "[音频消息]";
-          console.log(`提取到媒体消息: 音频`);
-        } else if (messageContent.includes('tgme_widget_message_document')) {
-          messageText = "[文档消息]";
-          console.log(`提取到媒体消息: 文档`);
+        if (textMatch) {
+          // 移除 HTML 标签，提取纯文本
+          messageText = textMatch[1].replace(/<[^>]+>/g, "").trim();
+          // 处理 HTML 实体
+          messageText = messageText
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, " ");
+          
+          // 清理空白字符
+          messageText = messageText.replace(/\s+/g, " ").trim();
+          console.log(`提取到消息内容: ${messageText}`);
         } else {
-          messageText = "[媒体消息]";
-          console.log(`提取到媒体消息: 其他`);
+          // 检查媒体消息，尝试提取更多信息
+          if (messageContent.includes('tgme_widget_message_photo')) {
+            // 尝试提取图片描述或相关文本
+            let photoDesc = "[图片消息]";
+            
+            // 检查是否有标题或描述
+            const descRegex = /<div[^>]+class="[^"]*tgme_widget_message_caption[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+            const descMatch = descRegex.exec(messageContent);
+            
+            if (descMatch) {
+              const descText = descMatch[1].replace(/<[^>]+>/g, "").trim().replace(/\s+/g, " ");
+              if (descText) {
+                photoDesc = `[图片消息] ${descText}`;
+              }
+            }
+            
+            messageText = photoDesc;
+            console.log(`提取到媒体消息: 图片 - ${photoDesc}`);
+          } else if (messageContent.includes('tgme_widget_message_video')) {
+            messageText = "[视频消息]";
+            console.log(`提取到媒体消息: 视频`);
+          } else if (messageContent.includes('tgme_widget_message_audio')) {
+            messageText = "[音频消息]";
+            console.log(`提取到媒体消息: 音频`);
+          } else if (messageContent.includes('tgme_widget_message_document')) {
+            messageText = "[文档消息]";
+            console.log(`提取到媒体消息: 文档`);
+          } else {
+            messageText = "[媒体消息]";
+            console.log(`提取到媒体消息: 其他`);
+          }
         }
-      }
       
       // 只添加有内容的消息
       if (messageText && messageText.length > 0) {
