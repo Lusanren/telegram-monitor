@@ -316,8 +316,8 @@ function parseMessages(html, channelUsername) {
     try {
       let messageText = "";
       
-      // 提取文本消息，使用更灵活的正则表达式，支持before_footer类
-        const textRegex = /<div[^>]+class="[^"]*(?:tgme_widget_message_text|before_footer)[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+      // 提取文本消息，只关注tgme_widget_message_text容器，支持before_footer类
+        const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
         const textMatch = textRegex.exec(messageContent);
         
         if (textMatch) {
@@ -335,38 +335,6 @@ function parseMessages(html, channelUsername) {
           // 清理空白字符
           messageText = messageText.replace(/\s+/g, " ").trim();
           console.log(`提取到消息内容: ${messageText}`);
-        } else {
-          // 检查媒体消息，尝试提取更多信息
-          if (messageContent.includes('tgme_widget_message_photo')) {
-            // 尝试提取图片描述或相关文本
-            let photoDesc = "[图片消息]";
-            
-            // 检查是否有标题或描述
-            const descRegex = /<div[^>]+class="[^"]*tgme_widget_message_caption[^"]*"[^>]*>([\s\S]*?)<\/div>/;
-            const descMatch = descRegex.exec(messageContent);
-            
-            if (descMatch) {
-              const descText = descMatch[1].replace(/<[^>]+>/g, "").trim().replace(/\s+/g, " ");
-              if (descText) {
-                photoDesc = `[图片消息] ${descText}`;
-              }
-            }
-            
-            messageText = photoDesc;
-            console.log(`提取到媒体消息: 图片 - ${photoDesc}`);
-          } else if (messageContent.includes('tgme_widget_message_video')) {
-            messageText = "[视频消息]";
-            console.log(`提取到媒体消息: 视频`);
-          } else if (messageContent.includes('tgme_widget_message_audio')) {
-            messageText = "[音频消息]";
-            console.log(`提取到媒体消息: 音频`);
-          } else if (messageContent.includes('tgme_widget_message_document')) {
-            messageText = "[文档消息]";
-            console.log(`提取到媒体消息: 文档`);
-          } else {
-            messageText = "[媒体消息]";
-            console.log(`提取到媒体消息: 其他`);
-          }
         }
       
       // 只添加有内容的消息
