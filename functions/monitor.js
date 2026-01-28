@@ -316,8 +316,8 @@ function parseMessages(html, channelUsername) {
     try {
       let messageText = "";
       
-      // 提取文本消息，使用更灵活的正则表达式
-        const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+      // 提取文本消息，使用更灵活的正则表达式，支持before_footer类
+        const textRegex = /<div[^>]+class="[^"]*(?:tgme_widget_message_text|before_footer)[^"]*"[^>]*>([\s\S]*?)<\/div>/;
         const textMatch = textRegex.exec(messageContent);
         
         if (textMatch) {
