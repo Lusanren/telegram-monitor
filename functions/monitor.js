@@ -331,24 +331,10 @@ function parseMessages(html, channelUsername) {
         // 尝试多种可能的消息文本容器结构
         let textMatch;
         
-        // 模式1: 标准的tgme_widget_message_text容器
-        const pattern1 = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
-        textMatch = pattern1.exec(unescapedContent);
-        console.log(`模式1匹配结果: ${textMatch ? '成功' : '失败'}`);
-        
-        // 模式2: 带有before_footer类的容器
-        if (!textMatch) {
-          const pattern2 = /<div[^>]+class="[^"]*before_footer[^"]*"[^>]*>([\s\S]*?)<\/div>/;
-          textMatch = pattern2.exec(unescapedContent);
-          console.log(`模式2匹配结果: ${textMatch ? '成功' : '失败'}`);
-        }
-        
-        // 模式3: 任何包含文本的div容器
-        if (!textMatch) {
-          const pattern3 = /<div[^>]*>([\s\S]*?)<\/div>/;
-          textMatch = pattern3.exec(unescapedContent);
-          console.log(`模式3匹配结果: ${textMatch ? '成功' : '失败'}`);
-        }
+        // 使用c350dfd中的匹配方法，简化为单一正则表达式
+        const textRegex = /<div[^>]+class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/;
+        textMatch = textRegex.exec(unescapedContent);
+        console.log(`文本匹配结果: ${textMatch ? '成功' : '失败'}`);
         
         if (textMatch) {
           console.log(`匹配到的文本内容: ${textMatch[1].substring(0, 200)}...`);
